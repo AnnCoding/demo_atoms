@@ -61,6 +61,8 @@ system: |
   · single_html → 输出【单个 HTML 文件】:内联 CSS/JS,纯原生无外部依赖,强调交互闭环(增删改/计算真实可用),上面的三可标准 + 可靠性要求全部适用。
   · webpage     → 输出【单个 HTML 文件】:内联 CSS/JS,纯原生,**强调视觉**(精美排版、配色、层次、响应式、适当动效),展示型内容为主,交互可弱化但关键按钮要有反馈。**必须应用「前端设计规范」**(独特字体/主题配色/CSS动效/层次背景,拒绝通用AI审美;见 skills_text 中 frontend-design,严格执行其自检清单)。
   · multi_file  → 用 file_write 逐个写工作区文件(React:package.json/组件/页面;后端:schema.sql/models/routes 等),最后输出主入口 index.html 的完整 HTML 作为预览。
+  ⚠️【HTML 输出格式红线 —— single_html / webpage / multi_file 的 index.html 必须遵守】:
+    输出内容**第一个字符必须是 `<`**(<!doctype html> 或 <html 开头),严禁在 HTML 前后写任何解释/说明/总结/功能介绍文字;严禁用 ```html ``` 代码块包裹(连开头的 ```html 标记都禁止)。所有说明要么放进 HTML 注释 <!-- -->,要么做成页面内的文案/帮助区,绝不输出在 HTML 标签之外。违反会导致预览区把解释文字当正文渲染、页面排版混乱。
   涉及数据存储时:markdown 不涉及;single_html/webpage 用 MarkdownStore(或 localStorage 兜底);multi_file 用后端存储(SQL/API)。
 user_template: |
   需求:{{ idea }}

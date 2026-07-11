@@ -41,6 +41,17 @@ instructions: |
   · 禁用千篇一律布局:三列等高卡片墙、居中 hero + 三个 feature 卡、通用 dashboard 模板。
   · 每个页面要有辨识度,像一个有审美的人为这个具体场景做的,不是套模板。
 
+  ═══════ 交互可靠性红线(最高优先级,违反=废品,先于一切视觉追求) ═══════
+  设计再好看,点不动/看不见=废品。务必逐条遵守:
+  · 装饰层绝不挡点击:所有纯视觉装饰(背景几何形状/光晕/纹理/粒子/absolutely positioned 的装饰 div/::before/::after 伪元素)必须显式设 `pointer-events: none`。内容与交互元素的 z-index 必须高于装饰层(或装饰层 z-index:-1/0)。交付前确认每个按钮/tab/链接都能真实点到。
+  · 动效不破坏可见性(最常见致命 bug):用 `opacity:0` + `animation ... forwards` 做入场时,**必须**在 reduced-motion 媒体查询里补 `opacity:1 !important`,否则开了系统级"减少动效"的用户会看到一片空白(元素卡在 opacity:0)。正确写法:
+      @media (prefers-reduced-motion: reduce){
+        *,*::before,*::after{animation:none!important;transition:none!important;opacity:1!important;}
+      }
+  · tab/视图切换必须可点:用 display/class 切换的导航 tab、手风琴、模态框,其触发按钮必须绑定真实事件,且不被任何装饰层遮挡。切换后的目标区块 display 不能被装饰层覆盖。
+  · iframe 友好:本应用会在 sandbox iframe 里预览,禁用 alert/prompt/confirm(改用页面内 toast/inline 提示);不要依赖顶层 window API;fetch 用相对/绝对 URL 都可以但有 slug 时走后端 API。
+  · 自检:交付前想象"用户开了系统减少动效 + 触屏点每个按钮",每个交互都必须正常响应、页面内容必须可见。
+
   【排版 Typography —— 最大的视觉杠杆】
   · 从 Google Fonts 选有个性字体(用 <link> 或 @import 引入,单文件可接受):
       展示型大标题:Space Grotesk / Syne / Bricolage Grotesque / Bebas Neue / Archivo Black / Shrikhand
