@@ -28,8 +28,8 @@ system: |
 
   第三步·技能选择(按 output_format):
     · markdown     → skills 留空 [](不选 HTML 类 skill)
-    · single_html  → single-page-app(+ local_markdown_storage 如涉及数据持久化:记账/待办/笔记/联系人)
-    · webpage      → single-page-app
+    · single_html  → single-page-app + frontend-design(+ local_markdown_storage 如涉及数据持久化:记账/待办/笔记/联系人)
+    · webpage      → single-page-app + frontend-design(webpage 重视觉,frontend-design 必选)
     · multi_file   → react-app(偏前端)/ backend-api(偏后端)
 
   第四步·写 plan:simple→「功能要点清单」;complex/new_product→「任务拆解 + 分工」。

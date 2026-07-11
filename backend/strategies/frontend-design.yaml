@@ -1,0 +1,101 @@
+name: frontend-design
+display_name: 前端设计规范(反AI-slop)
+description: 让生成的前端页面视觉精美——独特排版/主题配色/CSS动效/层次背景,拒绝通用AI审美
+category: frontend
+trigger_keywords:
+  - 网页
+  - 页面
+  - 官网
+  - 网站
+  - landing
+  - 展示
+  - 展示页
+  - 品牌
+  - 设计
+  - UI
+  - 界面
+  - 前端
+  - 介绍页
+  - portal
+  - 主页
+  - 首页
+  - 视觉
+  - 美化
+  - 好看
+  - 美观
+target_agent: alex
+collaborator_agents: []
+required_tools: []
+default_active: false
+default_router: true
+default_priority: 3
+
+instructions: |
+  ═══════ 前端设计规范 —— 让页面真正好看,拒绝"AI味" ═══════
+  本规范源自 frontend-slides 方法论。生成 webpage / single_html 时**必须应用**,在保证 Alex「三可+可靠性」前提下,把视觉做到位。设计是锦上添花,绝不能为了好看牺牲可运行/可交互。
+
+  【核心理念 —— 反 AI-slop,务必警觉】
+  你天然会收敛到"安全、通用、平均"的输出,这就是用户说的"AI味"。必须主动对抗:
+  · 禁用通用字体:Arial / Inter / Roboto / Helvetica / system-ui / sans-serif 默认栈。
+  · 禁用俗套配色:尤其"白底紫色渐变"(lavender/purple gradient on white)、Tailwind 默认蓝、淡灰配淡蓝。
+  · 禁用千篇一律布局:三列等高卡片墙、居中 hero + 三个 feature 卡、通用 dashboard 模板。
+  · 每个页面要有辨识度,像一个有审美的人为这个具体场景做的,不是套模板。
+
+  【排版 Typography —— 最大的视觉杠杆】
+  · 从 Google Fonts 选有个性字体(用 <link> 或 @import 引入,单文件可接受):
+      展示型大标题:Space Grotesk / Syne / Bricolage Grotesque / Bebas Neue / Archivo Black / Shrikhand
+      优雅衬线:Playfair Display / Fraunces / Instrument Serif / Cormorant Garamond / Lora
+      手写/个性:Caveat / Caveat Brush / Alfa Slab
+  · 强字号层级:display 标题(48-96px)与 body(16-18px)拉开至少 3 倍差距,别都用 16-24px 中庸区间。
+  · 中文配套:思源黑体/思源宋体/霞鹜文楷(可用 Google Fonts 的 Noto Sans SC / Noto Serif SC,或系统 fallback)。
+  · 绝不让标题落到 Arial/Inter。
+
+  【配色 Color —— 主题化,主色主导】
+  · 用 CSS 变量(:root)定义整套主题,字体/背景/强调色统一引用,保证一致性。
+  · 主色主导 + 1 个锐利点缀色(dominant + sharp accent),胜过 timid 均匀分布的调色板。
+  · 三类方向(任选其一,别混):
+      深色:navy/charcoal/forest 深底 + 金/青/电光蓝/霓虹粉 单点点缀(如 #0a0e1a 底 + #ffd166 点缀)。
+      浅色:cream/bone/ivory 暖纸底 + cobalt/rust/墨蓝 点缀(如 #faf6ef 底 + #2845c8 点缀)。
+      大胆色块:cream/纸底 + 多色撞色块(green/pink/orange/yellow),neobrutalism 黑边粗框。
+  · 避免淡紫、避免纯黑纯白,用 #0a0e1a、#faf6ef 这类有色温的近似色。
+
+  【动效 Motion —— 聚焦高影响力时刻】
+  · 优先纯 CSS 方案。最高性价比:页面加载时的 staggered reveal(错峰入场)——用 @keyframes + 每个元素不同的 animation-delay(60-120ms 递增),一次编排好的入场胜过十几个零散 hover。
+  · 关键交互要有 hover/active 反馈(transform: translateY(-2px) / box-shadow 变化 / opacity)。
+  · 数字/统计可加 count-up 或简单的脉冲。
+  · 必须加兜底:
+      @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+  · 不要用 JS 动画库,纯 CSS keyframes 即可。
+
+  【背景 Backgrounds —— 别用纯色】
+  · 禁止 #fff / 纯色背景。营造氛围和纵深:
+      叠加 CSS 渐变(linear-gradient / radial-gradient 多层)
+      几何图案(repeating-linear-gradient 网格、conic-gradient 放射)
+      噪点纹理(用 SVG data-uri 或 CSS filter)
+      装饰性大色块/几何形状(absolutely positioned 的圆/方块作背景装饰)
+  · 背景要和整体审美匹配(深色主题用微光晕,纸感主题用纹理,科技感用网格)。
+
+  【12 风格预设 —— 选一种 commit 到底,别混搭】
+  根据需求选一种,贯穿全页(配色+字体+装饰统一):
+  深色系:Bold Signal(自信高冲击暗色卡片)/ Electric Studio(专业分屏)/ Creative Voltage(活力霓虹蓝)/ Dark Botanical(暖色点缀优雅深色)
+  浅色系:Notebook Tabs(纸质彩色标签)/ Pastel Geometry(柔和几何)/ Split Pastel(双色分屏)/ Vintage Editorial(几何复古)
+  特色系:Neon Cyber(粒子霓虹)/ Terminal Green(极客终端)/ Swiss Modern(包豪斯极简)/ Paper & Ink(文学墨水)
+  若用户没指定,按需求氛围推断:科技/数据→Terminal Green 或 Creative Voltage;品牌/产品→Bold Signal 或 Electric Studio;文艺/内容→Paper & Ink 或 Vintage Editorial;活泼/儿童→Pastel Geometry。
+
+  【与 Alex 现有约束的兼容 —— 不能破坏】
+  · 字体可用 Google Fonts 的 <link> 或 @import(单文件内联引入,这是唯一允许的外部资源)。
+  · 但 JS 框架(React/Vue/jQuery)、API 网络请求、其他 CDN 仍严禁(保持可靠性第 5 条)。
+  · 交互闭环、数据持久化(MarkdownStore/localStorage)、无 console 报错——这些优先级高于视觉,先保证能跑能用,再美化。
+  · webpage 形态重视觉(展示为主,交互可弱化但关键按钮要有反馈);single_html 形态重交互,设计为交互服务(别让花哨动效挡住核心功能)。
+
+  【输出前自检 —— 逐条过】
+  ① 标题字体是不是 Arial/Inter/system?是→换掉。
+  ② 配色是不是白底紫渐变/Tailwind 默认蓝/淡灰?是→换主题。
+  ③ 背景是不是纯色?是→加渐变/纹理/装饰。
+  ④ 有没有页面加载的 staggered 入场动效?
+  ⑤ 有没有 prefers-reduced-motion 兜底?
+  ⑥ 配色是不是主色+1点缀(dominant+accent),还是 timid 均匀涂色?
+  ⑦ 字体引入用 <link>/@import,没有依赖其他 CDN?
+  ⑧ 交互/存储/无报错这些 Alex 基本盘没被破坏?
+
+  参考资源:完整方法论与风格详情见 frontend-slides 开源仓库 https://github.com/zarazhangrui/frontend-slides (SKILL.md / STYLE_PRESETS.md / animation-patterns.md;其中 viewport-base.css 的固定 1920×1080 舞台规则仅供演示文稿场景,普通页面不强制)。

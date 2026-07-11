@@ -35,6 +35,19 @@ def build_context(session, step) -> Context:
     return ctx
 
 
+def _skills_for_alex(session) -> list:
+    """前端页面生成(single_html/webpage)时,强制带上 frontend-design 设计规范。
+
+    覆盖所有模式——engineer/deep_research 模式 output_format 恒为 single_html 也能命中,
+    不依赖关键词命中或 Mike 是否选中。multi_file/markdown 形态不注入。
+    """
+    skills = list(session.skills or [])
+    fmt = getattr(session, "output_format", "single_html")
+    if fmt in ("single_html", "webpage") and "frontend-design" not in skills:
+        skills.append("frontend-design")
+    return skills
+
+
 def resolve_inputs(step, ctx: Context, session, agent_id: str) -> dict:
     data = {
         "idea": ctx.idea,
@@ -50,7 +63,9 @@ def resolve_inputs(step, ctx: Context, session, agent_id: str) -> dict:
         lines = [f"- {s['id']}: {s['name']} — {s['description']}" for s in skills_loader.catalog()]
         data["skills_catalog"] = "\n".join(lines) or "(暂无 skill)"
     # 给当前 agent 看的、target 命中的 skill 正文
-    data["skills_text"] = skills_loader.skills_text(session.skills or [], agent_id)
+    # Alex 生成前端页面(single_html/webpage)时,强制注入 frontend-design 设计规范
+    alex_skills = _skills_for_alex(session) if agent_id == "alex" else (session.skills or [])
+    data["skills_text"] = skills_loader.skills_text(alex_skills, agent_id)
     return data
 
 
@@ -304,7 +319,7 @@ async def _run_iteration(session, save_fn, mem) -> AsyncGenerator[str, None]:
         "previous_code": session.artifacts.get("code", ""),
         "modify_instruction": session.last_user_msg,
         "iteration": session.iteration,
-        "skills_text": "",
+        "skills_text": skills_loader.skills_text(_skills_for_alex(session), "alex"),
         "existing_files": "\n".join(f["path"] for f in files) if files else "",
         "output_format": getattr(session, "output_format", "single_html"),
         "change_history": _build_change_summary(session),
@@ -534,7 +549,7 @@ async def run(session, save_fn) -> AsyncGenerator[str, None]:
                     fix_ctx["fix_instruction"] = fix_instruction
                     fix_ctx["previous_code"] = session.artifacts.get("code", "")[:8000]
                     fix_ctx["idea"] = session.idea
-                    fix_ctx["skills_text"] = skills_loader.skills_text(session.skills or [], alex_agent.id)
+                    fix_ctx["skills_text"] = skills_loader.skills_text(_skills_for_alex(session), alex_agent.id)
 
                     fix_out = ""
                     async for evt in run_with_tools(alex_agent, fix_ctx, "alex", extra_tools=extra):

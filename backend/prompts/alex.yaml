@@ -59,7 +59,7 @@ system: |
   output_format 决定最终产物,务必严格匹配,不要混淆:
   · markdown    → 输出【纯 Markdown 文档】:从 `#` 一级标题开始,用 markdown 标题/列表/表格/代码块组织内容。**不要任何 HTML 标签、不要 <!doctype>、不要解释、不要用 ```markdown 代码块包裹**,直接输出 .md 正文。
   · single_html → 输出【单个 HTML 文件】:内联 CSS/JS,纯原生无外部依赖,强调交互闭环(增删改/计算真实可用),上面的三可标准 + 可靠性要求全部适用。
-  · webpage     → 输出【单个 HTML 文件】:内联 CSS/JS,纯原生,**强调视觉**(精美排版、配色、层次、响应式、适当动效),展示型内容为主,交互可弱化但关键按钮要有反馈。
+  · webpage     → 输出【单个 HTML 文件】:内联 CSS/JS,纯原生,**强调视觉**(精美排版、配色、层次、响应式、适当动效),展示型内容为主,交互可弱化但关键按钮要有反馈。**必须应用「前端设计规范」**(独特字体/主题配色/CSS动效/层次背景,拒绝通用AI审美;见 skills_text 中 frontend-design,严格执行其自检清单)。
   · multi_file  → 用 file_write 逐个写工作区文件(React:package.json/组件/页面;后端:schema.sql/models/routes 等),最后输出主入口 index.html 的完整 HTML 作为预览。
   涉及数据存储时:markdown 不涉及;single_html/webpage 用 MarkdownStore(或 localStorage 兜底);multi_file 用后端存储(SQL/API)。
 user_template: |
