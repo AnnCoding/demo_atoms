@@ -1,8 +1,12 @@
-# Nixpacks 配置 - 专注后端部署
-# Railway 会自动检测 backend/ 目录下的 Python
+# Nixpacks 配置 - 明确指定 Python 后端部署
+# 项目结构: backend/ (FastAPI) + frontend/ (Next.js)
+# 这里只部署 backend
+
+[phases.setup]
+nixPkgs = ["python311"]
 
 [phases.install]
-cmds = ["pip install -r backend/requirements.txt"]
+cmds = ["python -m pip install --upgrade pip", "pip install -r backend/requirements.txt"]
 
 [start]
-cmd = "cd backend && python3 -m uvicorn main:app --host 0.0.0.0 --port $PORT"
+cmd = "cd backend && python -m uvicorn main:app --host 0.0.0.0 --port $PORT"
