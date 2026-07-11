@@ -1,0 +1,12 @@
+# Nixpacks 配置 - Railway 使用此配置构建
+
+[phases.setup]
+
+[phases.install]
+cmds = ["cd backend && pip install -r requirements.txt", "cd frontend && npm install"]
+
+[phases.build]
+cmds = ["cd frontend && npm run build"]
+
+[start]
+cmd = "cd backend && python3 -m uvicorn main:app --host 0.0.0.0 --port $PORT"
