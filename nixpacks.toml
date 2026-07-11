@@ -1,12 +1,5 @@
-# Nixpacks 配置 - 明确指定 Python 后端部署
-# 项目结构: backend/ (FastAPI) + frontend/ (Next.js)
-# 这里只部署 backend
-
-[phases.setup]
-nixPkgs = ["python311"]
-
-[phases.install]
-cmds = ["python -m pip install --upgrade pip", "pip install -r backend/requirements.txt"]
+# Nixpacks 配置 - 让 nixpacks 自动检测 Python (根目录 requirements.txt)
+# 只需指定启动命令
 
 [start]
 cmd = "cd backend && python -m uvicorn main:app --host 0.0.0.0 --port $PORT"
