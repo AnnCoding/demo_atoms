@@ -9,6 +9,8 @@ pypdf>=4.0
 tavily-python>=0.3
 python-dotenv>=1.0
 supabase>=2.3
+langsmith>=0.1
+openai>=1.0
 # —— 可选:真关系型数据库(templates/ 建表+CRUD 用,配 DATABASE_URL 后生效)——
 asyncpg>=0.29
 # —— 可选:短期记忆走 Redis(配 REDIS_URL 后生效)——
