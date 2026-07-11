@@ -1,0 +1,9 @@
+{
+  "name": "atoms-validator",
+  "version": "1.0.0",
+  "private": true,
+  "description": "jsdom 运行时校验生成的前端代码",
+  "dependencies": {
+    "jsdom": "^24.0.0"
+  }
+}

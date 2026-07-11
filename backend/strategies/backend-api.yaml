@@ -1,0 +1,32 @@
+name: backend-api
+display_name: 后端 API 应用(FastAPI)
+description: 生成多文件后端 API——建表 SQL + Pydantic 模型 + CRUD 路由
+category: backend
+trigger_keywords:
+  - 后端
+  - api
+  - crud
+  - 增删改查
+  - rest
+  - 服务端
+  - 接口
+  - fastapi
+target_agent: alex
+collaborator_agents:
+  - bob
+required_tools:
+  - file_write
+  - file_read
+default_active: false
+default_router: true
+default_priority: 10
+
+instructions: |
+  这是多文件后端项目,**不要输出单文件 HTML**。用 file_write 逐个写文件到工作区:
+
+  1. `schema.sql` —— 参考 templates/schema.sql,按需求定表(uuid 主键、timestamptz、jsonb、索引、updated_at 触发器)。
+  2. `models.py` —— Pydantic 模型(Base / In / Out)。
+  3. `database.py` —— asyncpg 连接池(读 DATABASE_URL),参考 core/database.py。
+  4. `crud.py` —— 参数化 CRUD(占位符 $1,$2 防注入),参考 templates/crud.py。
+  5. `routes.py` —— FastAPI 路由:`GET /items` 列表、`POST /items` 创建、`GET/PUT/DELETE /items/{id}`。
+  6. `main.py` —— 创建 app + CORS + 挂载 routes。

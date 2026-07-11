@@ -1,0 +1,30 @@
+name: single-page-app
+display_name: 单文件网页应用
+description: 生成单个 HTML 文件(内联 CSS/JS + localStorage)的交互应用
+category: frontend
+trigger_keywords:
+  - 小工具
+  - 计算器
+  - 计时器
+  - 番茄钟
+  - 单页
+  - 记账
+  - todo
+  - 待办
+  - 小游戏
+target_agent: alex
+collaborator_agents: []
+required_tools: []
+default_active: false
+default_router: true
+default_priority: 8
+
+instructions: |
+  输出【单个 HTML 文件】,内联 CSS 与 JS,无外部依赖/请求。
+
+  - 必须有真实交互逻辑(增删改/计算),用 localStorage 持久化,刷新不丢。
+  - 所有 JS 放 body 末尾 <script> 或 DOMContentLoaded 内;每个按钮都绑定事件;菜单/视图切换用 display 或 class,不用 <a> 跳转。
+  - 访问 localStorage 用 try/catch 兜底;输出前自检无 console 报错。
+  - 只输出 HTML 源码(从 <!doctype html> 开始),不要解释/markdown 包裹。
+
+  参考质量:一个能真正使用的应用,而非占位 demo。

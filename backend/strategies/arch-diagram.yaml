@@ -1,0 +1,27 @@
+name: arch-diagram
+display_name: 架构图(Mermaid)
+description: 用 Mermaid 画系统架构图 / 流程图 / ER 图
+category: design
+trigger_keywords:
+  - 架构图
+  - 流程图
+  - 结构图
+  - er图
+  - mermaid
+  - 拓扑
+  - 时序图
+target_agent: bob
+collaborator_agents: []
+required_tools: []
+default_active: false
+default_router: true
+default_priority: 7
+
+instructions: |
+  在架构文档里用 Mermaid 代码块可视化表达,与文字说明一致:
+
+  - **系统架构**:`graph TB`(前端 / 后端 / DB / 外部依赖分层,标注协议)。
+  - **流程/时序**:`sequenceDiagram`(请求→响应、跨服务调用)。
+  - **数据模型**:`erDiagram`(表与关系,标注基数)。
+
+  要求:节点命名清晰、关系标注语义、避免冗余线条。输出 Markdown,内含 ```mermaid 代码块。

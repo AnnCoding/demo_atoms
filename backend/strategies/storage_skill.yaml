@@ -1,0 +1,178 @@
+name: local_markdown_storage
+display_name: 本地 Markdown 存储
+description: 数据存到项目 workspace/database.md(真文件,跨设备持久)。生成的 HTML 通过后端 API 自动读写它(作品页/分享页都能用),不用用户手动选文件。记账/待办/笔记/联系人等需要持久化的应用用。
+category: storage
+trigger_keywords:
+  - 记账
+  - 记账工具
+  - 记账本
+  - 账单
+  - 支出
+  - 收支
+  - 待办
+  - 待办清单
+  - 待办事项
+  - todo
+  - 任务清单
+  - 笔记
+  - 记事本
+  - 备忘录
+  - 联系人
+  - 通讯录
+  - 收藏
+  - 收藏夹
+  - 书签
+  - 存储
+  - 本地存储
+  - 数据存储
+  - 持久化
+  - 保存数据
+  - 保存记录
+  - 导出
+  - markdown
+  - 记录
+  - 列表管理
+  - 增删改查
+target_agent: alex
+collaborator_agents: []
+required_tools: []
+default_active: false
+default_router: true
+default_priority: 5
+
+instructions: |
+  【Markdown 存储 Skill · 后端持久化版】
+  数据存到项目 workspace/database.md(真文件,跨设备/跨浏览器持久,刷新/重启不丢)。生成的 HTML 通过后端 API 读写它——作品页预览、分享页都能直接用,**不需要用户手动选文件**。生成中预览(还没落库、没 slug)会自动降级到 localStorage。
+
+  【运行时变量 —— 由预览框架自动注入,你生成代码时直接用,不要自己定义】
+  · window.PROJECT_SLUG : 当前作品的 slug(作品页/分享页有值;主页生成中预览为 "")
+  · window.API_BASE     : 后端地址(如 http://localhost:8010)
+  判断规则:有 PROJECT_SLUG → 走后端 API(真文件持久);无 → 走 localStorage(生成中预览临时)。MarkdownStore 已自动处理,你只管用。
+
+  【后端 API】
+  GET  {API_BASE}/api/projects/{slug}/db   → {"content": "# Database\n## 表名\n| ... |"}
+  PUT  {API_BASE}/api/projects/{slug}/db   body {"content": "..."} → {"ok": true}
+  (GET 时 database.md 不存在会自动初始化为 "# Database")
+
+  【何时用 MarkdownStore】数据增删改查 / 用户输入需持久化 / 列表需跨会话保留(记账/待办/笔记/联系人/收藏夹)。
+  不适用(用普通 JS 变量):纯计算器、主题切换、动画、倒计时、Tab 切换。
+
+  【集成模式 —— 务必遵守】
+  1. <script> 顶部原样定义 MarkdownStore class(代码见下)。
+  2. const store = new MarkdownStore();
+  3. 页面放「连接数据库」按钮,点击时 await store.connect()(从后端 database.md 读入内存;连过可隐藏按钮)。也可在 DOMContentLoaded 里自动 connect。
+  4. 建表(幂等) + CRUD:所有写操作(createTable/insert/update/delete)都返回 Promise,【必须 await】;之后立即 renderList()。
+  5. 连接成功后调用一次 renderList() 显示已有数据。
+  数据层(MarkdownStore) / 渲染层(renderList) / 事件层 三者分离。
+
+  【MarkdownStore class 完整代码 —— 原样粘贴到 <script> 顶部】
+  class MarkdownStore {
+    constructor(){ this.db = {}; this._schema = {}; this._raw = '# Database\n'; }
+    async connect(){
+      const slug = window.PROJECT_SLUG || '';
+      const base = window.API_BASE || '';
+      if(slug){
+        const r = await fetch(base + '/api/projects/' + slug + '/db');
+        const j = await r.json();
+        this._raw = j.content || '# Database\n';
+      } else {
+        this._raw = localStorage.getItem('database.md') || '# Database\n';
+      }
+      this.db = this._parse(this._raw);
+      return this;
+    }
+    async _persist(){
+      this._raw = this._serialize();
+      const slug = window.PROJECT_SLUG || '';
+      const base = window.API_BASE || '';
+      if(slug){
+        await fetch(base + '/api/projects/' + slug + '/db', {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: this._raw })
+        });
+      } else {
+        localStorage.setItem('database.md', this._raw);
+      }
+    }
+    _parse(md){
+      const db = {};
+      for(const sec of md.split(/^## /m)){
+        const lines = sec.split('\n');
+        const table = lines[0].trim();
+        if(!table || table.startsWith('#')) continue;
+        const tl = lines.filter(l => l.trim().startsWith('|'));
+        if(tl.length < 2){ db[table] = []; continue; }
+        const cols = tl[0].split('|').slice(1, -1).map(s => s.trim());
+        this._schema[table] = cols;
+        db[table] = tl.slice(2).map(line => {
+          const vals = line.split('|').slice(1, -1).map(s => s.trim().replace(/\\\|/g, '|'));
+          const o = {}; cols.forEach((c, i) => { o[c] = vals[i] ?? ''; }); return o;
+        });
+      }
+      return db;
+    }
+    _serialize(){
+      let md = '# Database\n\n';
+      for(const [table, rows] of Object.entries(this.db)){
+        const cols = rows[0] ? Object.keys(rows[0]) : (this._schema[table] || []);
+        md += `## ${table}\n\n| ${cols.join(' | ')} |\n| ${cols.map(() => '---').join(' | ')} |\n`;
+        for(const r of rows){ md += '| ' + cols.map(c => String(r[c] ?? '').replace(/\|/g, '\\|')).join(' | ') + ' |\n'; }
+        md += '\n';
+      }
+      return md || '# Database\n';
+    }
+    async createTable(table, columns){
+      if(this.db[table]) return;
+      this.db[table] = []; this._schema[table] = columns;
+      await this._persist();
+    }
+    async insert(table, record){
+      if(!this.db[table]) this.db[table] = [];
+      if(!record.id) record.id = this._genId();
+      this.db[table].push(record);
+      await this._persist();
+      return record;
+    }
+    readAll(table){ return (this.db[table] || []).map(r => ({ ...r })); }
+    async update(table, idVal, patch, idCol = 'id'){
+      const rows = this.db[table] || [];
+      const r = rows.find(x => String(x[idCol]) === String(idVal));
+      if(!r) return null;
+      Object.assign(r, patch, { [idCol]: r[idCol] });
+      await this._persist();
+      return r;
+    }
+    async delete(table, idVal, idCol = 'id'){
+      const before = (this.db[table] || []).length;
+      this.db[table] = (this.db[table] || []).filter(x => String(x[idCol]) !== String(idVal));
+      const changed = this.db[table].length < before;
+      await this._persist();
+      return changed;
+    }
+    count(table){ return (this.db[table] || []).length; }
+    _genId(){ return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+    exportAll(){
+      const blob = new Blob([this._raw], { type: 'text/markdown;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = 'database.md';
+      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href);
+    }
+  }
+
+  【用法示例 —— 记账应用】
+  const store = new MarkdownStore();
+  // 页面加载或点「连接数据库」时
+  await store.connect();
+  await store.createTable('transactions', ['id','type','amount','category','note','date']);
+  renderList();
+  // 表单提交新增
+  await store.insert('transactions', { type:'支出', amount:50, category:'餐饮', note:'午餐', date:'2026-07-11' });
+  renderList();   // ← 立即刷新!
+  // 读取/统计
+  const all = store.readAll('transactions');
+  const expense = all.filter(t => t.type === '支出').reduce((s, t) => s + Number(t.amount), 0);
+  // 更新/删除(都要 await + renderList)
+  await store.update('transactions', id, { amount: 60 }); renderList();
+  await store.delete('transactions', id); renderList();
+  // 导出备份(下载 database.md)
+  store.exportAll();

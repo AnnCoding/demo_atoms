@@ -1,0 +1,31 @@
+name: database-design
+display_name: 数据库设计(Postgres)
+description: 设计表结构/索引/关系;Bob 出设计文档,Alex 出 schema.sql
+category: backend
+trigger_keywords:
+  - 数据库
+  - 建表
+  - 表结构
+  - 数据模型
+  - postgres
+  - mysql
+  - schema
+target_agent: alex
+collaborator_agents:
+  - bob
+  - david
+required_tools:
+  - file_write
+default_active: false
+default_router: true
+default_priority: 9
+
+instructions: |
+  **Bob(架构师)阶段**:输出表结构设计 Markdown——表名、字段(类型/约束)、主外键、索引、关系(1:N / N:M)、关键查询的索引策略。
+
+  **Alex(工程师)阶段**:用 file_write 生成 `schema.sql`:
+
+  - uuid 主键、timestamptz 时间戳、jsonb 扩展字段、软删除 deleted。
+  - `updated_at` 自动触发器(见 templates/schema.sql)。
+  - 外键声明 ON DELETE 策略(CASCADE / SET NULL);高频查询/排序字段建索引。
+  - 末尾给几条示例 INSERT 便于测试。

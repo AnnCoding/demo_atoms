@@ -1,0 +1,29 @@
+name: test-suite
+display_name: 测试用例(pytest/jest)
+description: 为已生成的代码补测试(后端 pytest / 前端 jest)
+category: testing
+trigger_keywords:
+  - 测试
+  - test
+  - 单元测试
+  - pytest
+  - jest
+  - 覆盖率
+target_agent: alex
+collaborator_agents:
+  - david
+required_tools:
+  - file_write
+  - file_read
+default_active: false
+default_router: true
+default_priority: 12
+
+instructions: |
+  先用 file_read 读已有代码,再用 file_write 生成测试:
+
+  - **后端(FastAPI)**:`tests/test_api.py`,用 `pytest` + `httpx.AsyncClient` 覆盖 CRUD 各端点(成功 + 异常分支:404、参数校验)。配 `pytest.ini` 与 conftest(测试用隔离 DB 或 mock)。
+  - **前端**:关键组件渲染/交互测试(jest/vitest)。
+  - `README.md` 说明如何跑(`pytest -q` / `npm test`),并列出预期覆盖的核心路径。
+
+  目标:`pytest -q` 能通过的核心路径覆盖,而非追求 100%。

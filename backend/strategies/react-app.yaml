@@ -1,0 +1,31 @@
+name: react-app
+display_name: React / Next.js 前端应用
+description: 生成多文件 Next.js(App Router)+ Tailwind 前端项目
+category: frontend
+trigger_keywords:
+  - react
+  - next.js
+  - nextjs
+  - 前端应用
+  - dashboard
+  - 仪表盘
+  - 看板
+  - 组件库
+target_agent: alex
+collaborator_agents: []
+required_tools:
+  - file_write
+  - file_read
+default_active: false
+default_router: true
+default_priority: 10
+
+instructions: |
+  生成一个可直接 `npm install && npm run dev` 跑起来的 Next.js 14(App Router)+ Tailwind 项目。用 file_write 逐个写:
+
+  1. 配置:`package.json`、`next.config.mjs`、`tailwind.config.ts`、`postcss.config.mjs`、`tsconfig.json`。
+  2. 入口:`app/layout.tsx`、`app/page.tsx`、`app/globals.css`。
+  3. 组件:按需求拆到 `components/`(每个组件一个文件),状态用 React hooks,数据用 localStorage 持久化。
+  4. `README.md` —— 运行步骤。
+
+  要求:交互真实可用(增删改有反馈)、响应式、界面美观。不要用外部 UI CDN,样式用 Tailwind class。
