@@ -2,14 +2,25 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { getJSON, runStream, uploadFile } from "@/lib/api";
-import type { AgentInfo, Approval, ModeInfo, Msg } from "@/lib/types";
+import type {
+  AgentInfo,
+  Approval,
+  ClarifyAnswers,
+  ClarifyQuestion,
+  ModeInfo,
+  Msg,
+} from "@/lib/types";
 import ChatPanel from "@/components/ChatPanel";
 import AgentTeam from "@/components/AgentTeam";
 import ArtifactPanel from "@/components/ArtifactPanel";
-import PreviewFrame from "@/components/PreviewFrame";
+import PreviewFrame, {
+  validateRenderableHtml,
+} from "@/components/PreviewFrame";
 import ApprovalCard from "@/components/ApprovalCard";
 import ModeSwitch from "@/components/ModeSwitch";
 import AttachmentUpload from "@/components/AttachmentUpload";
+import ClarificationCard from "@/components/ClarificationCard";
+import KnowledgePicker from "@/components/KnowledgePicker";
 
 const ARTIFACT_LABELS: Record<string, string> = {
   code: "编写代码",
@@ -29,19 +40,24 @@ export default function Home() {
   const [attachments, setAttachments] = useState<
     { id: string; filename: string; kind: string }[]
   >([]);
+  const [knowledgeIds, setKnowledgeIds] = useState<string[]>([]);
 
   const [running, setRunning] = useState(false);
   const [started, setStarted] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [currentAgent, setCurrentAgent] = useState("");
+  const [activeAgents, setActiveAgents] = useState<string[]>([]);
   const [completed, setCompleted] = useState<string[]>([]);
   const [artifacts, setArtifacts] = useState<Record<string, string>>({});
   const [approval, setApproval] = useState<Approval | null>(null);
   const [clarify, setClarify] = useState<{
-    questions: string[];
+    questions: ClarifyQuestion[];
     sessionId: string;
+    purpose?: string;
+    summary?: string;
+    plan?: string;
   } | null>(null);
-  const [clarifyAns, setClarifyAns] = useState("");
+  const [clarifyAnswers, setClarifyAnswers] = useState<ClarifyAnswers>({});
   const [shareUrl, setShareUrl] = useState("");
   const [files, setFiles] = useState<string[]>([]);
   const [error, setError] = useState("");
@@ -51,6 +67,7 @@ export default function Home() {
 
   const idRef = useRef(0);
   const curArt = useRef("");
+  const artByAgent = useRef<Record<string, string>>({});
   const codeRef = useRef("");
   const lastPreview = useRef(0);
 
@@ -59,7 +76,8 @@ export default function Home() {
     const now = Date.now();
     if (now - lastPreview.current > 800) {
       lastPreview.current = now;
-      setPreviewHtml(codeRef.current);
+      const validation = validateRenderableHtml(codeRef.current);
+      if (validation.ok) setPreviewHtml(validation.html);
     }
   }, [artifacts.code]);
 
@@ -80,7 +98,13 @@ export default function Home() {
     const t = e.type as string;
     if (t === "phase") {
       setCurrentAgent(e.agent as string);
+      setActiveAgents((previous) =>
+        e.parallel_group
+          ? [...new Set([...previous, e.agent as string])]
+          : [e.agent as string],
+      );
       curArt.current = (e.artifact as string) || "";
+      artByAgent.current[e.agent as string] = (e.artifact as string) || "";
       push({
         agent: e.agent as string,
         emoji: (e.emoji as string) || "",
@@ -89,7 +113,11 @@ export default function Home() {
         text: `${e.role} 开始工作`,
       });
     } else if (t === "delta") {
-      const key = curArt.current;
+      const key =
+        (e.artifact as string) ||
+        artByAgent.current[(e.agent as string) || ""] ||
+        curArt.current;
+      if (key === "code") codeRef.current += (e.text as string) || "";
       if (key)
         setArtifacts((prev) => ({
           ...prev,
@@ -125,7 +153,13 @@ export default function Home() {
         emoji: "🔧",
         role: "",
         kind: "tool",
-        text: `调用 ${e.tool}(${Object.keys(a || {}).join(",")})`,
+        text: `调用 ${e.tool} · 第 ${e.round || 1} 轮`,
+        payload: {
+          call_id: e.call_id,
+          arguments: a,
+          status: "running",
+        },
+        timestamp: e.timestamp as string,
       });
     } else if (t === "tool_result") {
       push({
@@ -133,7 +167,73 @@ export default function Home() {
         emoji: "↳",
         role: "",
         kind: "tool",
-        text: String(e.result || "").slice(0, 200),
+        text: `${e.tool} · ${e.status || "ok"} · ${e.duration_ms || 0}ms`,
+        payload: {
+          call_id: e.call_id,
+          status: e.status,
+          duration_ms: e.duration_ms,
+          result: e.result,
+        },
+        timestamp: e.timestamp as string,
+      });
+    } else if (t === "parallel_start") {
+      setActiveAgents((e.agents as string[]) || []);
+      push({
+        agent: "Orchestrator",
+        emoji: "⚡",
+        role: "并行任务",
+        kind: "decision",
+        text: `同时启动：${((e.agents as string[]) || []).join("、")}`,
+        payload: { group: e.group, artifacts: e.artifacts },
+      });
+    } else if (t === "parallel_done") {
+      setCompleted((previous) => [
+        ...new Set([...previous, ...((e.agents as string[]) || [])]),
+      ]);
+      setActiveAgents([]);
+    } else if (t === "artifact_ready") {
+      const agentName = (e.agent as string) || "Agent";
+      setCompleted((previous) => [...new Set([...previous, agentName])]);
+      setActiveAgents((previous) =>
+        previous.filter((name) => name !== agentName),
+      );
+      setMessages((previous) => {
+        const completedMessage = {
+          agent: agentName,
+          emoji: "✓",
+          role: "结构化产物",
+          kind: "decision" as const,
+          text: `${ARTIFACT_LABELS[e.artifact as string] || e.artifact}已完成`,
+          payload: {
+            artifact: e.artifact,
+            format: e.format,
+            size: e.size,
+          },
+        };
+        const pendingIndex = previous.findLastIndex(
+          (message) => message.kind === "coding" && message.agent === agentName,
+        );
+        if (pendingIndex < 0) {
+          return [...previous, { ...completedMessage, id: ++idRef.current }];
+        }
+        return previous.map((message, index) =>
+          index === pendingIndex
+            ? { ...message, ...completedMessage }
+            : message,
+        );
+      });
+      if (e.artifact === "code") {
+        const validation = validateRenderableHtml(codeRef.current);
+        if (validation.ok) setPreviewHtml(validation.html);
+      }
+    } else if (t === "agent_error") {
+      push({
+        agent: (e.agent as string) || "Agent",
+        emoji: e.recoverable ? "⚠️" : "❌",
+        role: e.recoverable ? "已降级" : "执行失败",
+        kind: "error",
+        text: String(e.message || "Agent 执行失败"),
+        payload: { artifact: e.artifact, recoverable: e.recoverable },
       });
     } else if (t === "validate") {
       const ok = e.ok as boolean;
@@ -147,6 +247,21 @@ export default function Home() {
           : `第 ${(Number(e.attempt) || 0) + 1} 次校验报错,触发自愈: ${String(e.errors || "").slice(0, 140)}`,
       });
     } else if (t === "routed") {
+      setActiveAgents((previous) => previous.filter((name) => name !== "Mike"));
+      setCompleted((previous) => [...new Set([...previous, "Mike"])]);
+      setMessages((previous) =>
+        previous.map((message) =>
+          message.kind === "coding" && message.agent === "Mike"
+            ? {
+                ...message,
+                kind: "decision" as const,
+                emoji: "✓",
+                role: "需求分析完成",
+                text: "需求分析与路由已完成",
+              }
+            : message,
+        ),
+      );
       const parts = [`🧭 需求分析完成 · 复杂度: ${e.complexity}`];
       if (e.summary)
         parts.push(`\n💡 我理解的需求: ${(e.summary as string).trim()}`);
@@ -159,8 +274,36 @@ export default function Home() {
         text: parts.join(""),
       });
     } else if (t === "clarify") {
-      const qs = (e.questions as string[]) || [];
-      setClarify({ questions: qs, sessionId: e.session_id as string });
+      setActiveAgents((previous) => previous.filter((name) => name !== "Mike"));
+      setMessages((previous) =>
+        previous.map((message) =>
+          message.kind === "coding" && message.agent === "Mike"
+            ? {
+                ...message,
+                kind: "decision" as const,
+                emoji: "✓",
+                role: "等待确认",
+                text: "需求分析完成，等待你的确认",
+              }
+            : message,
+        ),
+      );
+      const qs = (e.questions as ClarifyQuestion[]) || [];
+      setClarify({
+        questions: qs,
+        sessionId: e.session_id as string,
+        purpose: e.purpose as string | undefined,
+        summary: e.summary as string | undefined,
+        plan: e.plan as string | undefined,
+      });
+      const defaults: ClarifyAnswers = {};
+      qs.forEach((question) => {
+        const recommended = question.options.find(
+          (option) => option.recommended,
+        );
+        if (recommended) defaults[question.id] = recommended.id;
+      });
+      setClarifyAnswers(defaults);
       // Mike 的提问也进对话历史(弹窗之外,左栏保留完整对话流)
       push({
         agent: "Mike",
@@ -169,7 +312,7 @@ export default function Home() {
         kind: "delta",
         text:
           "在开工前,我想先和你确认几个关键细节:\n" +
-          qs.map((q) => "• " + q).join("\n"),
+          qs.map((q) => "• " + q.question).join("\n"),
       });
     } else if (t === "approval") {
       setApproval({
@@ -184,7 +327,8 @@ export default function Home() {
       if (currentAgent) setCompleted((c) => [...new Set([...c, currentAgent])]);
     } else if (t === "done") {
       if (currentAgent) setCompleted((c) => [...new Set([...c, currentAgent])]);
-      setPreviewHtml(codeRef.current);
+      const validation = validateRenderableHtml(codeRef.current);
+      if (validation.ok) setPreviewHtml(validation.html);
       setFiles((e.files as string[]) || []);
       setShareUrl(e.shareUrl as string);
       if (e.session_id) setSessionId(e.session_id as string);
@@ -197,9 +341,24 @@ export default function Home() {
           text: e.summary as string,
         });
       setRunning(false);
+      setActiveAgents([]);
+      setMessages((previous) =>
+        previous.map((message) =>
+          message.kind === "coding"
+            ? {
+                ...message,
+                kind: "decision" as const,
+                emoji: "✓",
+                role: "已完成",
+                text: message.text.replace("正在", "已完成"),
+              }
+            : message,
+        ),
+      );
     } else if (t === "error") {
       setError((e.message as string) || "未知错误");
       setRunning(false);
+      setActiveAgents([]);
     }
   };
 
@@ -217,6 +376,8 @@ export default function Home() {
     setClarify(null);
     setCompleted([]);
     setCurrentAgent("");
+    setActiveAgents([]);
+    setClarifyAnswers({});
     setPreviewHtml("");
     setFiles([]);
     codeRef.current = "";
@@ -227,6 +388,8 @@ export default function Home() {
         mode,
         prompt: idea,
         attachment_ids: attachments.map((a) => a.id),
+        knowledge_ids: knowledgeIds,
+        owner_id: "local-user",
       },
       onEvent,
     );
@@ -246,14 +409,45 @@ export default function Home() {
 
   const submitClarify = async () => {
     if (!clarify) return;
-    const ans = clarifyAns;
-    push({ agent: "你", emoji: "", role: "", kind: "user", text: ans });
+    const missing = clarify.questions.some((question) => {
+      if (!question.required) return false;
+      const value = clarifyAnswers[question.id];
+      return Array.isArray(value)
+        ? value.length === 0
+        : !String(value || "").trim();
+    });
+    const adjustmentMissing =
+      clarifyAnswers.scope_confirmation === "adjust" &&
+      !String(clarifyAnswers.scope_confirmation__custom || "").trim();
+    if (missing || adjustmentMissing) {
+      setError(adjustmentMissing ? "请补充需要调整的内容" : "请完成所有必答项");
+      return;
+    }
+    const labels = clarify.questions.map((question) => {
+      const value = clarifyAnswers[question.id];
+      const ids = Array.isArray(value) ? value : [value];
+      const selected = ids
+        .filter(Boolean)
+        .map(
+          (id) => question.options.find((item) => item.id === id)?.label || id,
+        )
+        .join("、");
+      const custom = clarifyAnswers[`${question.id}__custom`];
+      return `${question.question}：${selected}${custom ? `（${custom}）` : ""}`;
+    });
+    push({
+      agent: "你",
+      emoji: "",
+      role: "",
+      kind: "user",
+      text: labels.join("\n"),
+    });
     setClarify(null);
-    setClarifyAns("");
+    setClarifyAnswers({});
     setRunning(true);
     await runStream(
       "/api/approve",
-      { session_id: clarify.sessionId, answers: ans },
+      { session_id: clarify.sessionId, answers: clarifyAnswers },
       onEvent,
     );
   };
@@ -293,10 +487,13 @@ export default function Home() {
     setRunning(false);
     setIdea("");
     setAttachments([]);
+    setKnowledgeIds([]);
     setMessages([]);
     setArtifacts({});
     setCompleted([]);
     setCurrentAgent("");
+    setActiveAgents([]);
+    setClarifyAnswers({});
     setSessionId("");
     setChatInput("");
     setShareUrl("");
@@ -333,6 +530,10 @@ export default function Home() {
             }
           />
         </div>
+        <div className="mt-4">
+          <div className="mb-1 text-xs text-gray-400">知识库上下文（可选）</div>
+          <KnowledgePicker value={knowledgeIds} onChange={setKnowledgeIds} />
+        </div>
         {error && <div className="mt-4 text-sm text-red-500">{error}</div>}
         <button
           onClick={start}
@@ -352,24 +553,34 @@ export default function Home() {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full flex flex-col">
             <div className="px-5 py-3 border-b font-semibold">
-              🧑‍💼 Mike 想和你确认几个细节
+              🧑‍💼{" "}
+              {clarify.purpose === "requirement_confirmation"
+                ? "确认需求后开始构建"
+                : "Mike 想和你确认几个细节"}
             </div>
-            <div className="px-5 py-3 space-y-1 text-sm text-gray-700">
-              {clarify.questions.map((q, i) => {
-                const text =
-                  typeof q === "string"
-                    ? q
-                    : (q as { question?: string })?.question ||
-                      JSON.stringify(q);
-                return <div key={i}>• {text}</div>;
-              })}
+            {clarify.purpose === "requirement_confirmation" && (
+              <div className="mx-5 mt-4 rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm">
+                <div className="font-medium text-blue-800">需求理解</div>
+                <div className="mt-1 text-blue-700">{clarify.summary}</div>
+                {clarify.plan && (
+                  <details className="mt-2 text-xs text-blue-700">
+                    <summary className="cursor-pointer font-medium">
+                      查看执行计划
+                    </summary>
+                    <div className="mt-1 whitespace-pre-wrap">
+                      {clarify.plan}
+                    </div>
+                  </details>
+                )}
+              </div>
+            )}
+            <div className="max-h-[65vh] overflow-y-auto px-5 py-4">
+              <ClarificationCard
+                questions={clarify.questions}
+                answers={clarifyAnswers}
+                onChange={setClarifyAnswers}
+              />
             </div>
-            <textarea
-              value={clarifyAns}
-              onChange={(e) => setClarifyAns(e.target.value)}
-              placeholder="逐条回答…"
-              className="mx-5 my-3 h-28 p-3 border rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-400"
-            />
             <div className="px-5 py-3 border-t flex justify-end gap-2">
               <button
                 onClick={() => {
@@ -382,7 +593,6 @@ export default function Home() {
               </button>
               <button
                 onClick={submitClarify}
-                disabled={!clarifyAns.trim()}
                 className="px-4 py-1.5 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40"
               >
                 提交回答 →
@@ -492,7 +702,7 @@ export default function Home() {
         <div className="overflow-y-auto bg-white p-3">
           <AgentTeam
             agents={agents}
-            current={currentAgent}
+            current={activeAgents}
             completed={completed}
           />
         </div>

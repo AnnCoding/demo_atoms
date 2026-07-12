@@ -6,6 +6,7 @@
     decisions.md      决策记忆(分流结论、用户澄清、验收结论)
     app.html          生成的应用(可直接打开)
     project.json      元数据
+    memory.json       给 Agent 注入的结构化长期记忆
 """
 import json
 import os
@@ -26,6 +27,7 @@ class ProjectMemory:
         self.decisions_path = os.path.join(self.dir, "decisions.md")
         self.code_path = os.path.join(self.dir, "app.html")
         self.meta_path = os.path.join(self.dir, "project.json")
+        self.memory_path = os.path.join(self.dir, "memory.json")
 
     def _append(self, path: str, msg: str):
         with open(path, "a", encoding="utf-8") as f:
@@ -50,3 +52,51 @@ class ProjectMemory:
     def save_meta(self, meta: dict):
         with open(self.meta_path, "w", encoding="utf-8") as f:
             json.dump(meta, f, ensure_ascii=False, indent=2)
+
+    def load_snapshot(self) -> dict:
+        try:
+            with open(self.memory_path, encoding="utf-8") as f:
+                data = json.load(f)
+                return data if isinstance(data, dict) else {}
+        except (FileNotFoundError, json.JSONDecodeError):
+            return {}
+
+    def remember_message(self, role: str, content: str, agent: str = "") -> dict:
+        """Persist compact conversational memory independent of process/Redis life."""
+        memory = self.load_snapshot()
+        messages = memory.setdefault("recent_messages", [])
+        messages.append({"role": role, "agent": agent, "content": content, "at": time.time()})
+        memory["recent_messages"] = messages[-16:]
+        self._save_snapshot(memory)
+        return memory
+
+    def remember_fact(self, category: str, value) -> dict:
+        memory = self.load_snapshot()
+        bucket = memory.setdefault(category, [])
+        if value not in bucket:
+            bucket.append(value)
+        memory[category] = bucket[-30:]
+        self._save_snapshot(memory)
+        return memory
+
+    def _save_snapshot(self, memory: dict):
+        tmp = self.memory_path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(memory, f, ensure_ascii=False, indent=2)
+        os.replace(tmp, self.memory_path)
+
+    def prompt_context(self, conversation: list | None = None) -> str:
+        """Bounded, structured prompt context. Full history remains persisted."""
+        memory = self.load_snapshot()
+        if conversation:
+            normalized = []
+            for item in conversation[-12:]:
+                if not isinstance(item, dict):
+                    continue
+                normalized.append({
+                    "role": item.get("role", ""),
+                    "agent": item.get("agent", ""),
+                    "content": item.get("content") or item.get("text") or "",
+                })
+            memory["recent_messages"] = normalized
+        return json.dumps(memory, ensure_ascii=False, indent=2)[:12000]

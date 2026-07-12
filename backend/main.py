@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api import approve, chat, generate, meta, projects, upload
+from api import approve, chat, generate, knowledge, meta, projects, skills, upload
 from core.log import setup
 
 load_dotenv()
@@ -30,6 +30,8 @@ app.include_router(generate.router, prefix="/api")
 app.include_router(approve.router, prefix="/api")
 app.include_router(projects.router, prefix="/api")
 app.include_router(chat.router, prefix="/api")
+app.include_router(skills.router, prefix="/api")
+app.include_router(knowledge.router, prefix="/api")
 
 
 @app.middleware("http")

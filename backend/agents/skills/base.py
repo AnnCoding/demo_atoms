@@ -17,6 +17,7 @@ log = logging.getLogger("atoms.skills")
 
 # 内置 strategies 目录
 _BUILTIN_STRATEGIES_DIR = Path(__file__).parent.parent.parent / "strategies"
+_DEFAULT_USER_SKILLS_DIR = Path(__file__).parent.parent.parent.parent / "data" / "user_skills"
 
 
 @dataclass
@@ -51,6 +52,7 @@ class Skill:
     default_router: bool = False
     default_priority: int = 100
     enabled: bool = True  # 运行时状态
+    source: str = "builtin"  # builtin | user
 
     def to_dict(self) -> dict:
         """序列化为字典（用于前端展示）。"""
@@ -67,6 +69,7 @@ class Skill:
             "default_router": self.default_router,
             "default_priority": self.default_priority,
             "enabled": self.enabled,
+            "source": self.source,
         }
 
 
@@ -213,11 +216,26 @@ class SkillManager:
             return 0
 
         self._custom_dir = directory
+        registry = {}
+        registry_path = directory / "_registry.json"
+        if registry_path.exists():
+            try:
+                import json
+                with open(registry_path, encoding="utf-8") as f:
+                    registry = json.load(f) or {}
+            except Exception as exc:
+                log.warning("User skill registry unreadable: %s", exc)
         skills = load_skills_from_directory(directory)
+        loaded = 0
         for skill in skills:
+            record = registry.get(skill.name, {}) if isinstance(registry, dict) else {}
+            if record and not record.get("enabled", True):
+                continue
+            skill.source = "user"
             self.register(skill)
-        log.info(f"Loaded {len(skills)} custom skills from {directory}")
-        return len(skills)
+            loaded += 1
+        log.info(f"Loaded {loaded} enabled custom skills from {directory}")
+        return loaded
 
     def get(self, name: str) -> Optional[Skill]:
         """获取指定名称的 Skill。"""
@@ -335,6 +353,7 @@ class SkillManager:
                 "description": s.description,
                 "category": s.category,
                 "target": s.target_agent,  # 前端字段名是 target
+                "source": s.source,
             }
             for s in self._skills.values()
         ]
@@ -360,10 +379,11 @@ def get_skill_manager(custom_dir=None) -> SkillManager:
     if _SKILL_MANAGER_PROTOTYPE is None:
         manager = SkillManager()
         manager.load_builtin_skills()
-        if custom_dir:
-            manager.load_custom_skills(custom_dir)
         _SKILL_MANAGER_PROTOTYPE = manager
         log.info("Initialized SkillManager prototype")
 
-    # 返回 deepcopy 克隆（避免副作用）
-    return copy.deepcopy(_SKILL_MANAGER_PROTOTYPE)
+    # 内置 Skill 使用 prototype；用户 Skill 每次从磁盘合并，安装/启停后立即生效。
+    manager = copy.deepcopy(_SKILL_MANAGER_PROTOTYPE)
+    directory = Path(custom_dir) if custom_dir else _DEFAULT_USER_SKILLS_DIR
+    manager.load_custom_skills(directory)
+    return manager

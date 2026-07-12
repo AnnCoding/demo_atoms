@@ -1,35 +1,68 @@
-/** sandbox iframe 渲染生成物。剥离可能的 ```html 包裹;注入 PROJECT_SLUG/API_BASE 供存储 skill 读写后端 database.md。 */
-function extractHtml(s: string): string {
-  if (!s) return "";
+/** 只允许完整 HTML 进入 iframe。流式半成品和模型解释文本留在缓冲区。 */
+export type HtmlValidation = {
+  ok: boolean;
+  html: string;
+  error?: string;
+  kind?: "empty" | "streaming" | "incomplete" | "invalid" | "ok";
+};
 
-  // 1. 尝试提取 ```html ... ``` 代码块
-  const m = s.match(/```(?:html)?\s*([\s\S]*?)```/);
-  if (m) return m[1].trim();
+export function validateRenderableHtml(source: string): HtmlValidation {
+  if (!source.trim())
+    return { ok: false, html: "", error: "等待代码生成", kind: "empty" };
 
-  // 2. 尝试提取 <html>...</html> 片段（即使前后有多余文本）
-  const htmlBlock = s.match(
-    /(<!doctype[\s\S]*?<\/html>|<html[\s\S]*?<\/html>)/i,
-  );
-  if (htmlBlock) return htmlBlock[1].trim();
+  let value = source.trim();
+  const fenced = value.match(/```(?:html)?\s*([\s\S]*?)```/i);
+  if (fenced) value = fenced[1].trim();
 
-  // 3. 如果整体以 <!doctype 或 <html 开头，直接使用
-  const t = s.trim();
-  if (/^<!doctype|^<html/i.test(t)) return t;
+  const lower = value.toLowerCase();
+  const doctypeStart = lower.indexOf("<!doctype");
+  const htmlStart = lower.indexOf("<html");
+  const start = doctypeStart >= 0 ? doctypeStart : htmlStart;
+  const end = lower.lastIndexOf("</html>");
+  if (start < 0)
+    return {
+      ok: false,
+      html: "",
+      error: "尚未生成 HTML 根节点",
+      kind: "invalid",
+    };
+  if (end < start)
+    // 有 <html 开头但缺 </html>:可能是流式生成中,也可能是已落库但被 max_tokens 截断
+    // —— 组件按 slug 区分:slug 空=生成中(spinner);slug 非空=历史截断(警告)
+    return {
+      ok: false,
+      html: "",
+      error: "HTML 仍在生成，尚未闭合",
+      kind: "streaming",
+    };
 
-  // 4. 包含 <body> 标签的片段，包裹成完整 HTML
-  if (/<body[\s>]/i.test(t)) {
-    return `<!DOCTYPE html><html><head><meta charset="utf-8"></head>${t}</html>`;
+  const html = value.slice(start, end + "</html>".length).trim();
+  if (!/<body[\s>]/i.test(html) || !/<\/body>/i.test(html)) {
+    return {
+      ok: false,
+      html: "",
+      error: "HTML body 尚未完整",
+      kind: "incomplete",
+    };
   }
-
-  // 5. 包含块级 HTML 元素（div/section/main/header 等），包裹为 body
-  if (
-    /<(div|section|main|header|footer|nav|article|form|table)[\s>]/i.test(t)
-  ) {
-    return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{font-family:system-ui,-apple-system,sans-serif;margin:0;padding:16px;color:#1a1a1a;}</style></head><body>${t}</body></html>`;
+  for (const tag of ["script", "style"]) {
+    const opens = html.match(new RegExp(`<${tag}[\\s>]`, "gi"))?.length || 0;
+    const closes = html.match(new RegExp(`</${tag}>`, "gi"))?.length || 0;
+    if (opens !== closes) {
+      return {
+        ok: false,
+        html: "",
+        error: `${tag} 标签尚未闭合`,
+        kind: "incomplete",
+      };
+    }
   }
+  return { ok: true, html, kind: "ok" };
+}
 
-  // 6. 纯文本/markdown 兜底：美化显示
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{font-family:system-ui,-apple-system,sans-serif;margin:0;padding:24px;color:#374151;line-height:1.6;background:#fafafa;}pre{white-space:pre-wrap;word-break:break-word;}</style></head><body><pre>${t.replace(/[<>&]/g, (c) => (c === "<" ? "&lt;" : c === ">" ? "&gt;" : "&amp;"))}</pre></body></html>`;
+function extractHtml(source: string): string {
+  const result = validateRenderableHtml(source);
+  return result.ok ? result.html : "";
 }
 
 /** 视觉设计基线：当生成的 HTML 缺少自定义样式时，注入现代化 CSS 基线 */
@@ -81,9 +114,42 @@ export default function PreviewFrame({
   slug?: string;
 }) {
   const apiBase = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8010";
+  const validation = validateRenderableHtml(html);
+  if (!validation.ok) {
+    // 已落库作品(slug 非空)却校验失败:多半是历史截断,显示静态警告,
+    // 而非误导性的"生成中" spinner(作品都生成完了不可能还在生成)。
+    if (
+      slug &&
+      (validation.kind === "streaming" || validation.kind === "incomplete")
+    ) {
+      return (
+        <div className="flex h-full items-center justify-center bg-amber-50 p-6 text-center">
+          <div>
+            <div className="mx-auto mb-3 text-2xl">⚠️</div>
+            <div className="text-sm font-medium text-amber-700">
+              作品代码不完整
+            </div>
+            <div className="mt-1 text-xs text-amber-600">
+              该作品可能因长度超限被截断({validation.error}
+              )。可重新生成或在对话区要求修复。
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div className="flex h-full items-center justify-center bg-slate-50 p-6 text-center">
+        <div>
+          <div className="mx-auto mb-3 h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-blue-500" />
+          <div className="text-sm font-medium text-slate-600">预览校验中</div>
+          <div className="mt-1 text-xs text-slate-400">{validation.error}</div>
+        </div>
+      </div>
+    );
+  }
   return (
     <iframe
-      srcDoc={injectEnv(html, slug, apiBase)}
+      srcDoc={injectEnv(validation.html, slug, apiBase)}
       // allow-same-origin:让生成物的 localStorage 可用 + fetch 后端 API 不被拦。
       sandbox="allow-scripts allow-same-origin"
       className="w-full h-full border-0 bg-white"

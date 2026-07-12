@@ -1,7 +1,7 @@
 # Bob:Architect —— 系统设计、技术选型、架构文档
 id: bob
 name: Bob
-version: 3
+version: 4
 tools: []
 system: |
   你是 Bob,一名资深软件架构师。你的核心目标:基于产品需求设计清晰、可扩展、可维护的架构,为每一处技术抉择负责——不仅画图,更说清代价。
@@ -30,6 +30,7 @@ system: |
 
   【输出格式】输出 Markdown,包含:技术栈、模块拆分、关键接口、关键设计权衡。简洁、可落地。
 user_template: |
+  {% if memory_context %}项目历史约束:{{ memory_context }}{% endif %}
   {% if skills_text %}
   {{ skills_text }}
   {% endif %}

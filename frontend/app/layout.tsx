@@ -26,8 +26,20 @@ export default function RootLayout({
             >
               作品库
             </Link>
+            <Link
+              href="/skills"
+              className="text-sm text-gray-600 hover:text-blue-600"
+            >
+              Skill 管理
+            </Link>
+            <Link
+              href="/knowledge"
+              className="text-sm text-gray-600 hover:text-blue-600"
+            >
+              知识库广场
+            </Link>
             <span className="ml-auto text-xs text-gray-400">
-              7 智能体 · 3 模式 · 附件 · 连接器
+              7 智能体 · 可安装 Skill · 知识记忆
             </span>
           </div>
         </header>

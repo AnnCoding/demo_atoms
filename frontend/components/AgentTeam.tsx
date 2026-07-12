@@ -6,7 +6,7 @@ export default function AgentTeam({
   completed,
 }: {
   agents: AgentInfo[];
-  current: string;
+  current: string[];
   completed: string[];
 }) {
   return (
@@ -15,10 +15,10 @@ export default function AgentTeam({
         AI 团队
       </div>
       {agents.map((a) => {
-        const status = completed.includes(a.name)
-          ? "done"
-          : a.name === current
-            ? "working"
+        const status = current.includes(a.name)
+          ? "working"
+          : completed.includes(a.name)
+            ? "done"
             : "idle";
         return (
           <div
@@ -39,7 +39,7 @@ export default function AgentTeam({
             </div>
             {status === "working" && (
               <span className="text-xs text-blue-500 animate-pulse">
-                工作中…
+                {current.length > 1 ? "并行工作中…" : "工作中…"}
               </span>
             )}
             {status === "done" && (

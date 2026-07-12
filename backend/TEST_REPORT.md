@@ -1,5 +1,16 @@
 # Agent 执行状态流转测试报告
 
+> 2026-07-12 v2 更新：原报告保留作为 v1 基线。v2 新增
+> `test_architecture_v2.py`，覆盖版本化事件协议、结构化澄清选项、前置意图识别、
+> Emma/Iris 并行 discovery wave、关键/可选分支策略和持久化记忆边界。
+> 当前结果：v2 7/7 通过，原流程测试通过，Next.js production build 通过；
+> `work/smoke_v2.py` 的完整模拟链路输出 24 个连续事件，包含需求确认门及
+> `parallel_start → artifact_ready → parallel_done → done`。
+>
+> 扩展能力更新：`test_extensibility.py` 3/3 通过，覆盖用户 Skill 安装链路、
+> 禁止未知可执行工具、Skill 运行时停用，以及知识库“默认私有记忆 → 显式发布 →
+> 广场可引用”的权限流。前端新增 `/skills` 与 `/knowledge`，production build 7/7 页面生成成功。
+
 ## 测试概览
 
 **测试日期**: 2026-07-10  

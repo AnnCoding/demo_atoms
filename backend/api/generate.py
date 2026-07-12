@@ -15,11 +15,24 @@ log = logging.getLogger("atoms.generate")
 
 @router.post("/generate")
 async def generate(body: dict):
+    attachment_ids = list(body.get("attachment_ids", []))
+    knowledge_ids = list(body.get("knowledge_ids", []))
+    owner_id = body.get("owner_id") or "local-user"
+    if knowledge_ids:
+        from knowledge.store import as_attachment
+        for knowledge_id in knowledge_ids:
+            try:
+                attachment_ids.append(as_attachment(knowledge_id, owner_id).id)
+            except KeyError:
+                # Inaccessible knowledge is ignored here; API never leaks its content.
+                log.warning("知识条目不可访问: %s", knowledge_id)
     session = new_session(
         mode=body.get("mode", "engineer"),
         idea=body.get("prompt", ""),
-        attachment_ids=body.get("attachment_ids", []),
+        attachment_ids=attachment_ids,
         skill_id=body.get("skill_id"),
+        owner_id=owner_id,
+        knowledge_ids=knowledge_ids,
     )
     log.info(f"生成请求 mode={session.mode} skill={body.get('skill_id')} "
              f"idea={session.idea[:40]!r} session={session.id[:8]}")

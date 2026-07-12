@@ -10,6 +10,26 @@ process.stdin.on("end", () => {
   const errors = [];
   let done = false;
 
+  // 截断防线:jsdom 会把半截 HTML 自动补全 DOM 而误判 ok,
+  // 这里在进 jsdom 前用原始字符串检查闭合性,被 max_tokens 截断的产物直接判失败。
+  const _low = html.toLowerCase();
+  const _htmlStart = _low.indexOf("<html");
+  const _htmlEnd = _low.lastIndexOf("</html>");
+  if (_htmlStart >= 0 && _htmlEnd < _htmlStart) {
+    errors.push("HTML 被截断:缺少 </html> 闭合标签(输出可能超过 max_tokens)");
+    finish(false, { note: "truncated", skipped: false });
+    return;
+  }
+  for (const _tag of ["script", "style"]) {
+    const _op = (html.match(new RegExp(`<${_tag}[\\s>]`, "gi")) || []).length;
+    const _cl = (html.match(new RegExp(`</${_tag}>`, "gi")) || []).length;
+    if (_op !== _cl) {
+      errors.push(`HTML 被截断:<${_tag}> 未配对(开 ${_op} 闭 ${_cl})`);
+      finish(false, { note: "truncated", skipped: false });
+      return;
+    }
+  }
+
   function finish(ok, extra) {
     if (done) return;
     done = true;
@@ -82,11 +102,20 @@ process.stdin.on("end", () => {
       const { document, localStorage } = dom.window;
 
       // 【新增】检测：有表单/交互元素但代码中没有任何存储逻辑
-      const hasForm = document.querySelectorAll('form').length > 0;
-      const hasInputs = document.querySelectorAll('input:not([type=submit]):not([type=button]), textarea, select').length > 0;
-      const hasStorageLogic = html.includes('localStorage') || html.includes('MarkdownStore') || html.includes('sessionStorage') || html.includes('indexedDB');
+      const hasForm = document.querySelectorAll("form").length > 0;
+      const hasInputs =
+        document.querySelectorAll(
+          "input:not([type=submit]):not([type=button]), textarea, select",
+        ).length > 0;
+      const hasStorageLogic =
+        html.includes("localStorage") ||
+        html.includes("MarkdownStore") ||
+        html.includes("sessionStorage") ||
+        html.includes("indexedDB");
       if ((hasForm || hasInputs) && !hasStorageLogic) {
-        errors.push('检测到表单/输入元素但代码中没有任何数据存储逻辑（localStorage/MarkdownStore），用户提交的数据可能无法持久化，刷新后会丢失。');
+        errors.push(
+          "检测到表单/输入元素但代码中没有任何数据存储逻辑（localStorage/MarkdownStore），用户提交的数据可能无法持久化，刷新后会丢失。",
+        );
       }
 
       const bodyText0 = ((document.body && document.body.textContent) || "")

@@ -3,24 +3,42 @@ import { useRef, useState } from "react";
 import { runStream } from "@/lib/api";
 import PreviewFrame from "@/components/PreviewFrame";
 
-type Msg = { role: string; agent: string; text: string };
+type Msg = {
+  id?: string;
+  role: string;
+  agent: string;
+  text?: string;
+  content?: string;
+  format?: string;
+  created_at?: number;
+};
 
 function ChatBubble({ m }: { m: Msg }) {
+  const content = m.content || m.text || "";
   if (m.role === "user") {
     return (
       <div className="flex justify-end">
         <div className="max-w-[85%] px-3 py-1.5 rounded-2xl rounded-br-sm bg-blue-600 text-white text-xs whitespace-pre-wrap">
-          {m.text}
+          {content}
         </div>
       </div>
     );
   }
   return (
-    <div className="text-xs">
-      {m.agent && (
-        <span className="font-semibold text-blue-600 mr-1">{m.agent}:</span>
-      )}
-      <span className="text-gray-700 whitespace-pre-wrap">{m.text}</span>
+    <div className="rounded-lg border border-gray-200 bg-white p-3 text-xs shadow-sm">
+      <div className="mb-1 flex items-center gap-2">
+        <span className="font-semibold text-blue-700">
+          {m.agent || "AI 团队"}
+        </span>
+        {m.format && (
+          <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500">
+            {m.format}
+          </span>
+        )}
+      </div>
+      <div className="max-h-40 overflow-auto whitespace-pre-wrap leading-relaxed text-gray-700">
+        {content}
+      </div>
     </div>
   );
 }

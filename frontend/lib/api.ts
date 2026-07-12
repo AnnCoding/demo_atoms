@@ -48,6 +48,34 @@ export async function getJSON<T>(path: string): Promise<T> {
   return r.json();
 }
 
+export async function sendJSON<T>(
+  path: string,
+  method: "POST" | "PATCH" | "DELETE",
+  body?: Record<string, unknown>,
+): Promise<T> {
+  const response = await fetch(`${API}${path}`, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await response.json();
+  if (!response.ok)
+    throw new Error(
+      data.detail?.message || data.detail || `HTTP ${response.status}`,
+    );
+  return data;
+}
+
+export async function uploadForm<T>(path: string, form: FormData): Promise<T> {
+  const response = await fetch(`${API}${path}`, { method: "POST", body: form });
+  const data = await response.json();
+  if (!response.ok)
+    throw new Error(
+      data.detail?.message || data.detail || `HTTP ${response.status}`,
+    );
+  return data;
+}
+
 export async function uploadFile(file: File) {
   const fd = new FormData();
   fd.append("file", file);

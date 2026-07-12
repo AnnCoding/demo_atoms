@@ -15,3 +15,7 @@ data/
 
 # 服务运行日志
 logs/
+
+# 本地备份与 IDE 配置(不入库)
+.codex-backup*
+.idea/

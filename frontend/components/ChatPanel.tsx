@@ -56,20 +56,82 @@ export default function ChatPanel({ messages }: { messages: Msg[] }) {
         // phase / delta / tool
         const isPhase = m.kind === "phase";
         const isTool = m.kind === "tool";
+        if (isTool) {
+          return (
+            <details
+              key={m.id}
+              className="rounded-lg border border-gray-200 bg-gray-50 text-xs"
+            >
+              <summary className="cursor-pointer px-3 py-2 text-gray-700">
+                🔧 {m.agent ? `${m.agent} · ` : ""}
+                {m.text}
+              </summary>
+              {m.payload && (
+                <pre className="max-h-56 overflow-auto border-t bg-white p-3 text-[11px] leading-relaxed text-gray-600">
+                  {JSON.stringify(m.payload, null, 2)}
+                </pre>
+              )}
+            </details>
+          );
+        }
+        if (isPhase) {
+          return (
+            <div
+              key={m.id}
+              className="rounded-lg border border-blue-100 bg-blue-50 p-3"
+            >
+              <div className="flex items-center gap-2 text-sm font-semibold text-blue-800">
+                <span>{m.emoji}</span>
+                <span>{m.agent}</span>
+                <span className="font-normal text-blue-500">{m.role}</span>
+              </div>
+              <div className="mt-1 text-xs text-blue-700">{m.text}</div>
+            </div>
+          );
+        }
+        if (m.kind === "decision") {
+          return (
+            <div
+              key={m.id}
+              className="rounded-lg border border-violet-100 bg-violet-50 p-3 text-xs"
+            >
+              <div className="font-semibold text-violet-800">
+                {m.emoji} {m.agent} · {m.role}
+              </div>
+              <div className="mt-1 text-violet-700">{m.text}</div>
+              {m.payload && (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {Object.entries(m.payload).map(([key, value]) => (
+                    <span
+                      key={key}
+                      className="rounded bg-white px-2 py-1 text-[10px] text-violet-600"
+                    >
+                      {key}:{" "}
+                      {Array.isArray(value)
+                        ? value.join(", ")
+                        : String(value ?? "")}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        }
+        if (m.kind === "error") {
+          return (
+            <div
+              key={m.id}
+              className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800"
+            >
+              <div className="font-semibold">
+                {m.emoji} {m.agent} · {m.role}
+              </div>
+              <div className="mt-1 whitespace-pre-wrap">{m.text}</div>
+            </div>
+          );
+        }
         return (
-          <div
-            key={m.id}
-            className={
-              "text-sm " +
-              (isPhase
-                ? "font-semibold text-blue-600 border-l-2 border-blue-400 pl-2"
-                : isTool
-                  ? "text-gray-500 italic"
-                  : "text-gray-800")
-            }
-          >
-            {isPhase && <span className="mr-1">{m.emoji}</span>}
-            {isPhase ? `${m.agent}(${m.role}) · ` : isTool ? "🔧 " : ""}
+          <div key={m.id} className={"text-sm " + "text-gray-800"}>
             <span className={m.kind === "delta" ? "whitespace-pre-wrap" : ""}>
               {m.text}
             </span>

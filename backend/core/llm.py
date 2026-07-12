@@ -151,6 +151,11 @@ def _configured() -> bool:
     return bool(base and key)
 
 
+def _max_tokens() -> int:
+    """输出 token 上限。DeepSeek deepseek-chat 不传时默认 4096 会截断长 HTML,显式提到 8192。"""
+    return int(os.getenv("LLM_MAX_TOKENS", "8192"))
+
+
 @traceable(name="llm_stream", run_type="llm")
 async def stream(system: str, user: str):
     """流式生成,逐 token yield str。
@@ -165,6 +170,7 @@ async def stream(system: str, user: str):
     payload = {
         "model": model,
         "stream": True,
+        "max_tokens": _max_tokens(),
         "messages": [
             {"role": "system", "content": system},
             {"role": "user", "content": user},
@@ -216,7 +222,8 @@ async def complete(messages: list, tools: list = None):
     if not (base and key):
         return {"content": _mock(messages[0]["content"], messages[-1]["content"]),
                 "tool_calls": []}
-    payload = {"model": model, "stream": False, "messages": messages}
+    payload = {"model": model, "stream": False, "messages": messages,
+               "max_tokens": _max_tokens()}
     if tools:
         payload["tools"] = [{"type": "function", "function": _schema(t)} for t in tools]
         payload["tool_choice"] = "auto"
@@ -228,10 +235,11 @@ async def complete(messages: list, tools: list = None):
                                   headers=headers, json=payload)
             _check_fatal(r, "complete")  # 余额不足等永久性错误优先识别
             r.raise_for_status()
-            msg = r.json()["choices"][0]["message"]
+            choice = r.json()["choices"][0]
             return {
-                "content": msg.get("content") or "",
-                "tool_calls": _parse(msg.get("tool_calls")),
+                "content": (choice.get("message") or {}).get("content") or "",
+                "tool_calls": _parse((choice.get("message") or {}).get("tool_calls")),
+                "finish_reason": choice.get("finish_reason"),
             }
 
     return await _retry_on_429(_do, "complete")

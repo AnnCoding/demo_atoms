@@ -11,6 +11,8 @@ class Step:
     gate: bool = False
     prompt_key: Optional[str] = None
     kind: str = "run"  # "run"(普通步) | "triage"(Mike 分流步)
+    parallel_group: str = ""  # 相同且连续的 group 会并发执行
+    required: bool = True      # 并行分支失败时是否阻断主流程
 
 
 PIPELINES = {
@@ -36,10 +38,12 @@ def team_steps_after_triage(complexity: str) -> list:
     if complexity == "simple":
         # 简单工程实现:跳过 PM/架构,Alex 直接基于功能要点清单做,再验收
         return [Step("alex", output="code"), review]
-    # complex / new_product:完整团队接力
+    # complex / new_product:需求分析与市场/事实调研互不依赖，并行启动。
+    # Bob 在二者完成后综合设计，避免原实现中无意义的全串行等待。
     return [
-        Step("emma", output="spec"),
-        Step("bob", output="arch"),
+        Step("emma", output="spec", parallel_group="discovery"),
+        Step("iris", output="report", parallel_group="discovery", required=False),
+        Step("bob", output="arch", input_from=["spec", "report"]),
         Step("alex", output="code"),
         review,
     ]

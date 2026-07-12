@@ -34,6 +34,14 @@ class Session:
     conversation: list = field(default_factory=list)
     # ---- 产物形态(markdown / single_html / webpage / multi_file)----
     output_format: str = "single_html"
+    # ---- v2 orchestration / event protocol ----
+    run_id: str = field(default_factory=lambda: uuid.uuid4().hex)
+    event_seq: int = 0
+    completed_outputs: List[str] = field(default_factory=list)
+    intent: Dict[str, object] = field(default_factory=dict)
+    memory_snapshot: Dict[str, object] = field(default_factory=dict)
+    owner_id: str = "local-user"
+    knowledge_ids: List[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return dataclasses.asdict(self)
@@ -48,6 +56,13 @@ class Session:
         d.setdefault("last_user_msg", "")
         d.setdefault("conversation", [])
         d.setdefault("output_format", "single_html")
+        d.setdefault("run_id", uuid.uuid4().hex)
+        d.setdefault("event_seq", 0)
+        d.setdefault("completed_outputs", [])
+        d.setdefault("intent", {})
+        d.setdefault("memory_snapshot", {})
+        d.setdefault("owner_id", "local-user")
+        d.setdefault("knowledge_ids", [])
         steps = []
         for s in d.get("steps", []):
             steps.append(s if isinstance(s, Step) else Step(**s))
@@ -55,7 +70,8 @@ class Session:
         return cls(**d)
 
 
-def new_session(mode: str, idea: str, attachment_ids: list = None, skill_id: str = None) -> Session:
+def new_session(mode: str, idea: str, attachment_ids: list = None, skill_id: str = None,
+                owner_id: str = "local-user", knowledge_ids: list = None) -> Session:
     from modes.registry import PIPELINES
     s = Session(
         id=uuid.uuid4().hex,
@@ -65,6 +81,8 @@ def new_session(mode: str, idea: str, attachment_ids: list = None, skill_id: str
         project_id=str(uuid.uuid4()),
         steps=list(PIPELINES.get(mode, [])),
         skills=[skill_id] if skill_id else [],
+        owner_id=owner_id or "local-user",
+        knowledge_ids=knowledge_ids or [],
     )
     _stm.set("session:" + s.id, s.to_dict())
     return s
