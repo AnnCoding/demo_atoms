@@ -1,8 +1,4 @@
-# Nixpacks 配置 - Python 后端
-# 明确 install phase,确保 Railway 用最新源码完全重建(避免 build cache 用旧产物)
-
-[phases.install]
-cmds = ["pip install -r requirements.txt"]
+# Nixpacks 配置 - Python 后端(根目录 requirements.txt 自动检测)
 
 [start]
 cmd = "cd backend && python -m uvicorn main:app --host 0.0.0.0 --port $PORT"
